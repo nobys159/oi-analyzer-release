@@ -6,31 +6,32 @@ import subprocess
 def main():
     """
     This script is designed to be called by the main application to perform an update.
-    It waits for the main app to close, replaces the old script with the new one,
-    and then relaunches the application.
+    It waits for the main app to close, replaces the old executable with the new one,
+    and then relaunches the application with a flag to confirm success.
     """
     try:
-        old_file_path = sys.argv[1]
-        new_file_path = sys.argv[2]
+        old_exe_path = sys.argv[1]
+        new_exe_path = sys.argv[2]
 
         # 1. Wait for the main application to exit
-        time.sleep(2)
+        time.sleep(3)
 
-        # 2. Replace the old file with the new one
-        # On Windows, os.rename can fail if the target exists. os.replace is atomic.
-        if sys.platform == "win32":
-            os.replace(new_file_path, old_file_path)
-        else:
-            os.rename(new_file_path, old_file_path)
+        # 2. Rename the old executable (to be safe)
+        backup_path = old_exe_path + ".bak"
+        if os.path.exists(backup_path):
+            os.remove(backup_path)
+        os.rename(old_exe_path, backup_path)
 
-        # 3. Relaunch the application.
-        # Use sys.executable to ensure we use the same python interpreter.
-        subprocess.Popen([sys.executable, old_file_path])
+        # 3. Rename the new executable to the original name
+        os.rename(new_exe_path, old_exe_path)
+
+        # 4. Relaunch the new executable with a confirmation flag.
+        subprocess.Popen([old_exe_path, "--updated"])
 
     except IndexError:
         log_error("Error: Not enough arguments provided. Usage: python updater.py <old_path> <new_path>")
     except Exception as e:
-        log_error(f"An unexpected error occurred: {e}")
+        log_error(f"An unexpected error occurred during update: {e}")
 
 def log_error(message):
     """Writes an error message to a log file for debugging."""
