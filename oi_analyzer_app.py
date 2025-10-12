@@ -50,7 +50,7 @@ BROWSER_HEADER = {
 # --- NEW: OTA Update Configuration ---
 # ==============================================================================
 # The current version of the application.
-CURRENT_VERSION = "3.3.0" 
+CURRENT_VERSION = "3.3.1" 
 
 # The URL to the raw version.json file on your GitHub repository.
 # This file tells the app about the latest version and where to download it.
@@ -2592,3 +2592,4 @@ if __name__ == '__main__':
 
 
 v
+
