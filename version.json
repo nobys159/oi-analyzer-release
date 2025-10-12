@@ -1,9 +1,10 @@
 {
-  "version": "3.1.0",
+  "version": "3.3.1",
   "release_notes": "- Implemented a new seamless Over-the-Air (OTA) update system.\n- The application will now automatically check for new versions on startup.",
   "url": "https://raw.githubusercontent.com/nobys159/oi-analyzer-release/refs/heads/main/oi_analyzer_app.py",
   "updater_url": "https://raw.githubusercontent.com/nobys159/oi-analyzer-release/refs/heads/main/updater.py"
 }
+
 
 
 
