@@ -14,12 +14,6 @@ import webbrowser # Import webbrowser for OTA update process
 # Install it using pip: pip install Pillow
 from PIL import Image, ImageTk
 
-# --- NEW: tkcalendar library is required for the date selector ---
-# Install it using pip: pip install tkcalendar
-from tkcalendar import DateEntry
-
-# --- REMOVED: Selenium and related browser/proxy libraries are no longer needed ---
-
 # --- Firebase & Google Auth ---
 # These libraries are required. Install them using pip:
 # pip install firebase-admin google-auth-oauthlib google-api-python-client
@@ -50,15 +44,13 @@ BROWSER_HEADER = {
 # --- NEW: OTA Update Configuration ---
 # ==============================================================================
 # The current version of the application.
-CURRENT_VERSION = "3.3.1" 
+CURRENT_VERSION = "3.4.0" 
 
 # The URL to the raw version.json file on your GitHub repository.
 # This file tells the app about the latest version and where to download it.
 # IMPORTANT: You must create this file in a public GitHub repo for this to work.
-VERSION_URL = "https://raw.githubusercontent.com/nobys159/oi-analyzer-release/refs/heads/main/version.json"
+VERSION_URL = "https://raw.githubusercontent.com/nobyali/oi-analyzer/main/version.json"
 # ==============================================================================
-
-# --- REMOVED: ZenRows API Key is no longer needed ---
 
 
 # ==============================================================================
@@ -92,11 +84,6 @@ NIFTY_50_STOCKS = [
     'ONGC', 'POWERGRID', 'RELIANCE', 'SBILIFE', 'SBIN', 'SUNPHARMA', 
     'TCS', 'TATACONSUM', 'TATAMOTORS', 'TATASTEEL', 'TECHM', 'TITAN', 
     'ULTRACEMCO', 'UPL', 'WIPRO'
-]
-
-# --- NEW: MCX Symbol List ---
-MCX_SYMBOLS = [
-    'GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS', 'COPPER', 'ZINC'
 ]
 
 
@@ -503,9 +490,6 @@ class MainApplicationFrame(ttk.Frame):
         stocks_radio.pack(side=tk.LEFT, padx=5)
         crypto_radio = ttk.Radiobutton(asset_type_frame, text="Crypto", variable=self.asset_type_var, value="Crypto", command=self.update_asset_type_controls)
         crypto_radio.pack(side=tk.LEFT, padx=5)
-        # --- NEW: MCX Radio Button ---
-        mcx_radio = ttk.Radiobutton(asset_type_frame, text="MCX", variable=self.asset_type_var, value="MCX", command=self.update_asset_type_controls)
-        mcx_radio.pack(side=tk.LEFT, padx=5)
 
         input_frame = ttk.Frame(left_controls)
         input_frame.pack(anchor='w')
@@ -525,8 +509,6 @@ class MainApplicationFrame(ttk.Frame):
         self.expiry_label = ttk.Label(input_frame, text="Expiry:", font=('Segoe UI', 10))
         self.expiry_var = tk.StringVar()
         self.expiry_menu = ttk.Combobox(input_frame, textvariable=self.expiry_var, state="readonly", width=12)
-        # --- MODIFIED: Use a DateEntry widget for MCX Expiry ---
-        self.mcx_expiry_entry = DateEntry(input_frame, textvariable=self.expiry_var, width=12, date_pattern='y-mm-dd', background='darkblue', foreground='white', borderwidth=2)
         
         # Bind symbol changes to update expiry dates
         self.symbol_menu.bind("<<ComboboxSelected>>", self.on_symbol_change)
@@ -711,7 +693,6 @@ class MainApplicationFrame(ttk.Frame):
         self.stock_symbol_entry.pack_forget()
         self.expiry_label.pack_forget()
         self.expiry_menu.pack_forget()
-        self.mcx_expiry_entry.pack_forget()
 
         if asset_type == "Indices":
             self.symbol_menu['values'] = ['NIFTY', 'BANKNIFTY', 'FINNIFTY']
@@ -730,13 +711,6 @@ class MainApplicationFrame(ttk.Frame):
             self.symbol_menu['values'] = ['BTC', 'ETH']
             self.symbol_var.set('BTC')
             self.symbol_menu.pack(side=tk.LEFT, padx=5)
-        elif asset_type == "MCX":
-            self.symbol_menu['values'] = MCX_SYMBOLS
-            self.symbol_var.set('CRUDEOIL')
-            self.symbol_menu.pack(side=tk.LEFT, padx=5)
-            self.expiry_label.pack(side=tk.LEFT, padx=(10, 5))
-            self.mcx_expiry_entry.pack(side=tk.LEFT)
-            self.update_expiry_dates()
 
 
     def on_symbol_change(self, event=None):
@@ -748,7 +722,7 @@ class MainApplicationFrame(ttk.Frame):
         asset_type = self.asset_type_var.get()
         symbol = self.symbol_var.get().upper()
 
-        if not symbol or asset_type not in ["Indices", "Stocks", "MCX"]:
+        if not symbol or asset_type not in ["Indices", "Stocks"]:
             return
 
         self.expiry_var.set("Loading...")
@@ -758,8 +732,6 @@ class MainApplicationFrame(ttk.Frame):
             expiries = []
             if asset_type == "Indices" or asset_type == "Stocks":
                 expiries = self.fetch_nse_expiry_dates(symbol, asset_type)
-            elif asset_type == "MCX":
-                expiries = self.fetch_mcx_expiry_dates(symbol)
             
             # Schedule the UI update on the main thread
             self.after(0, self.populate_expiry_menu, expiries)
@@ -769,15 +741,11 @@ class MainApplicationFrame(ttk.Frame):
     def populate_expiry_menu(self, expiries):
         """MODIFIED: Safely populates the expiry dropdown or entry on the main thread."""
         if expiries:
-            # For non-MCX assets, populate the dropdown list
-            if self.asset_type_var.get() != "MCX":
-                self.expiry_menu['values'] = expiries
-            # For all asset types, set the default (nearest) expiry
+            self.expiry_menu['values'] = expiries
             self.expiry_var.set(expiries[0])
         else:
             self.expiry_var.set("No Expiries Found")
-            if self.asset_type_var.get() != "MCX":
-                self.expiry_menu['values'] = []
+            self.expiry_menu['values'] = []
 
 
     def create_probabilistic_display(self, parent):
@@ -872,31 +840,16 @@ class MainApplicationFrame(ttk.Frame):
         # Check if current time is within the market hours
         return market_open <= ist_now.time() <= market_close
 
-    def is_mcx_market_hours(self):
-        """NEW: Checks if the current time is within MCX market hours (9:00 AM - 11:30 PM IST)."""
-        ist_offset = timedelta(hours=5, minutes=30)
-        ist_now = datetime.now(timezone.utc) + ist_offset
-        
-        if ist_now.weekday() >= 5:
-            return False # It's Saturday or Sunday
-
-        # Define market open and close times (using 11:30 PM as a general close)
-        market_open = time(9, 0)
-        market_close = time(23, 30)
-
-        return market_open <= ist_now.time() <= market_close
-
     def run_auto_refresh(self):
         """
         --- REVISED ---
         This function is now a smart scheduler. It triggers an immediate fetch and then
         calculates the delay until the next fetch based on the asset type and market hours.
         """
-        # --- BUG FIX: The main fetch is now handled by the thread, so we just schedule the next run here. ---
         if not self.auto_refresh_var.get():
             return
-            
-        # First, run the fetch in a thread
+
+        # Always fetch data when the scheduler runs
         self.start_fetch_thread() 
 
         try:
@@ -931,29 +884,6 @@ class MainApplicationFrame(ttk.Frame):
                 next_open_str = next_open.strftime('%a, %b %d at %I:%M %p')
                 # Use self.after to ensure this UI update runs on the main thread
                 self.after(0, self.update_status, f"Market closed. Next NSE refresh at {next_open_str}.")
-            
-            # --- NEW: Check market hours for MCX assets ---
-            elif asset_type == "MCX" and not self.is_mcx_market_hours():
-                # Market is closed, so calculate a long delay until the next market open.
-                ist_offset = timedelta(hours=5, minutes=30)
-                now_ist = datetime.now(timezone.utc) + ist_offset
-                
-                next_open = now_ist.replace(hour=9, minute=0, second=0, microsecond=0)
-
-                if now_ist.time() > time(23, 30): # If it's after today's market close
-                    next_open += timedelta(days=1)
-
-                if next_open.weekday() == 5: # Saturday
-                    next_open += timedelta(days=2)
-                elif next_open.weekday() == 6: # Sunday
-                    next_open += timedelta(days=1)
-                
-                delay_seconds = (next_open - now_ist).total_seconds()
-                delay_ms = int(delay_seconds * 1000)
-                
-                next_open_str = next_open.strftime('%a, %b %d at %I:%M %p')
-                self.after(0, self.update_status, f"Market closed. Next MCX refresh at {next_open_str}.")
-
 
             # Schedule the next call to this scheduler function
             self.auto_refresh_job = self.after(delay_ms, self.run_auto_refresh)
@@ -974,7 +904,6 @@ class MainApplicationFrame(ttk.Frame):
         thread.start()
 
     def fetch_and_display_data(self):
-        # --- BUG FIX: Removed duplicated auto-refresh logic to prevent RuntimeError ---
         symbol = self.symbol_var.get().upper()
         asset_type = self.asset_type_var.get()
         # --- NEW: Get selected expiry date ---
@@ -991,9 +920,6 @@ class MainApplicationFrame(ttk.Frame):
 
         if asset_type == "Indices" or asset_type == "Stocks":
             oi_data = self.fetch_nse_oi_data(symbol, asset_type)
-        elif asset_type == "MCX":
-            # --- MODIFIED: Pass expiry date to MCX fetcher ---
-            oi_data = self.fetch_mcx_oi_data(symbol, expiry_date)
         else: # Crypto
             oi_data = self.fetch_crypto_oi_data(symbol)
         
@@ -1562,57 +1488,6 @@ class MainApplicationFrame(ttk.Frame):
             print(f"Error fetching NSE expiry dates for {symbol}: {e}")
             return []
 
-    def fetch_mcx_oi_data(self, symbol, expiry_date=None):
-        """REVISED: Fetches MCX data using a direct method with enhanced browser headers."""
-        try:
-            target_expiry = expiry_date
-            if not target_expiry or target_expiry == "Loading...":
-                expiries = self.fetch_mcx_expiry_dates(symbol)
-                if not expiries: return None
-                target_expiry = expiries[0]
-
-            self.update_status(f"Fetching MCX data for {symbol} on {target_expiry}...")
-            target_url = f"https://www.mcxindia.com/back-end/api/v1/mcx-option-chain?commodity={symbol}&expiry={target_expiry}"
-            
-            # --- MODIFIED: Enhanced headers to mimic a browser for MCX ---
-            mcx_headers = BROWSER_HEADER.copy()
-            mcx_headers.update({
-                'Referer': 'https://www.mcxindia.com/market-data/option-chain', # Mimic direct visit
-                'X-Requested-With': 'XMLHttpRequest', # Indicate AJAX request
-            })
-
-            response = requests.get(target_url, headers=mcx_headers, timeout=20)
-            response.raise_for_status()
-            return response.json()
-
-        except Exception as e:
-            print(f"Error fetching MCX OI data for {symbol}: {e}")
-            messagebox.showerror("API Error", f"Failed to fetch MCX data. The site may be blocking requests. Error: {e}")
-            return None
-
-    def fetch_mcx_expiry_dates(self, symbol):
-        """REVISED: Fetches MCX expiry dates using a direct method with enhanced browser headers."""
-        try:
-            target_url = f"https://www.mcxindia.com/back-end/api/v1/contracts/by-commodity/{symbol}"
-            
-            # --- MODIFIED: Enhanced headers to mimic a browser for MCX ---
-            mcx_headers = BROWSER_HEADER.copy()
-            mcx_headers.update({
-                'Referer': 'https://www.mcxindia.com/market-data/option-chain', # Mimic direct visit
-                'X-Requested-With': 'XMLHttpRequest', # Indicate AJAX request
-            })
-
-            response = requests.get(target_url, headers=mcx_headers, timeout=20)
-            response.raise_for_status()
-            data = response.json()
-            expiries = data.get("data", [])
-            return sorted([e['expiryDate'] for e in expiries if 'expiryDate' in e])
-
-        except Exception as e:
-            print(f"Error fetching MCX expiry dates for {symbol}: {e}")
-            messagebox.showerror("API Error", f"Failed to fetch MCX expiry dates. The site may be blocking requests. Error: {e}")
-            return []
-
     def fetch_crypto_oi_data(self, symbol):
         """NEW: Fetches crypto options data from Deribit for the nearest expiry."""
         base_url = "https://www.deribit.com/api/v2/public"
@@ -1985,7 +1860,7 @@ class MainApplicationFrame(ttk.Frame):
         }
 
     def analyze_oi(self, data, asset_type, requested_symbol, selected_expiry=None):
-        """MODIFIED: Handles NSE Indices, NSE Equities, MCX, and Deribit data structures."""
+        """MODIFIED: Handles NSE Indices, NSE Equities, MCX, and Deritbit data structures."""
         try:
             # --- Data Normalization ---
             if asset_type == 'Indices' or asset_type == 'Stocks':
@@ -2034,35 +1909,6 @@ class MainApplicationFrame(ttk.Frame):
                     else:
                         df[col] = 0 # Default to 0 if column is missing
                 df = df.fillna(0)
-
-            # --- NEW: MCX Data Normalization ---
-            elif asset_type == 'MCX':
-                option_data_list = data.get("data", [])
-                if not option_data_list:
-                     messagebox.showerror("Data Error", "Could not find option data in the MCX response.")
-                     return None
-                
-                underlying_value = option_data_list[0].get('underlying', 0)
-                formatted_time = datetime.now().strftime('%I:%M:%S %p, %d-%b-%Y') # MCX API doesn't provide a reliable timestamp
-
-                parsed_data = []
-                for item in option_data_list:
-                    strike = item.get('strikePrice', 0)
-                    ce_data = item.get('call', {})
-                    pe_data = item.get('put', {})
-                    parsed_data.append({
-                        'strikePrice': strike,
-                        'CE.openInterest': ce_data.get('openInterest', 0),
-                        'CE.changeinOpenInterest': ce_data.get('changeinOpenInterest', 0),
-                        'CE.impliedVolatility': ce_data.get('impliedVolatility', 0),
-                        'CE.totalTradedVolume': ce_data.get('totalTradedVolume', 0),
-                        'PE.openInterest': pe_data.get('openInterest', 0),
-                        'PE.changeinOpenInterest': pe_data.get('changeinOpenInterest', 0),
-                        'PE.impliedVolatility': pe_data.get('impliedVolatility', 0),
-                        'PE.totalTradedVolume': pe_data.get('totalTradedVolume', 0),
-                    })
-                df = pd.DataFrame(parsed_data)
-
 
             else: # Crypto (Deribit)
                 option_data_list = data['deribit_data']
@@ -2492,8 +2338,7 @@ class AppController(tk.Tk):
     def on_closing(self):
         """Called when the main window is closed."""
         if isinstance(self.current_frame, MainApplicationFrame):
-            # This check is no longer needed as we removed the driver
-            pass
+            self.current_frame.shutdown_mcx_driver()
         self.destroy()
 
 
@@ -2586,10 +2431,4 @@ if __name__ == '__main__':
     app = AppController()
     app.protocol("WM_DELETE_WINDOW", app.on_closing) # Handle window close event
     app.mainloop()
-
-
-
-
-
-v
 
