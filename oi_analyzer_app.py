@@ -5,6 +5,8 @@ import requests
 import pandas as pd
 import json
 from datetime import datetime, timezone, time, timedelta
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
@@ -44,7 +46,7 @@ BROWSER_HEADER = {
 # --- NEW: OTA Update Configuration ---
 # ==============================================================================
 # The current version of the application.
-CURRENT_VERSION = "3.4.0" 
+CURRENT_VERSION = "3.2.0" 
 
 # The URL to the raw version.json file on your GitHub repository.
 # This file tells the app about the latest version and where to download it.
@@ -1880,12 +1882,8 @@ class MainApplicationFrame(ttk.Frame):
                 records = data.get('records', {})
                 underlying_value = records.get('underlyingValue', 0)
                 
-                # BUG FIX: This section is no longer needed as we pass the symbol in.
-                # index_symbol = requested_symbol 
-                
                 # For stocks, the symbol is in a different place
                 if asset_type == 'Stocks':
-                    # --- BUG FIX: Underlying symbol for stocks is in a different key ---
                     # This check is still useful to confirm we got the right stock data
                     response_symbol = data.get('records', {}).get('underlying', {}).get('symbol', 'N/A')
                     if underlying_value == 0: # Fallback for stocks
@@ -1914,8 +1912,6 @@ class MainApplicationFrame(ttk.Frame):
                 option_data_list = data['deribit_data']
                 underlying_value = data['underlyingValue']
                 formatted_time = data['timestamp']
-                # BUG FIX: This is now consistent
-                # index_symbol = requested_symbol
                 
                 parsed_data = []
                 for item in option_data_list:
@@ -2230,6 +2226,7 @@ class AppController(tk.Tk):
                                    "To fix this, find your User UID in the Firebase Authentication console and update the ADMIN_UID variable in the code.")
 
         self.check_login_status()
+        self.check_if_updated() # --- NEW: Check if the app was just updated ---
 
     def load_ad_image(self, ad_label, url, size):
         """Loads an ad image from a URL in a background thread to avoid UI freezes."""
@@ -2334,11 +2331,21 @@ class AppController(tk.Tk):
         """Logs the user out if the disclaimer is declined."""
         self.logout()
 
+    # --- NEW: Function to check for update flag ---
+    def check_if_updated(self):
+        """Checks for a command-line flag to show an update success message."""
+        if "--updated" in sys.argv:
+            success_message = (
+                f"Update Successful!\n\n"
+                f"You are now running the latest version: {CURRENT_VERSION}"
+            )
+            # Use 'after' to ensure the main window is ready before showing the message
+            self.after(500, lambda: messagebox.showinfo("Update Complete", success_message))
+
+
     # --- NEW: Function to handle application closing ---
     def on_closing(self):
         """Called when the main window is closed."""
-        if isinstance(self.current_frame, MainApplicationFrame):
-            self.current_frame.shutdown_mcx_driver()
         self.destroy()
 
 
@@ -2396,8 +2403,8 @@ class AppController(tk.Tk):
 
         def _download():
             try:
-                # Download the new application file
-                new_app_filename = "oi_analyzer_app_new.py"
+                # --- MODIFIED: The new file is now an executable ---
+                new_app_filename = "OI_Analyzer_new.exe"
                 # --- MODIFIED: Use the standard browser header ---
                 response = requests.get(download_url, stream=True, headers=BROWSER_HEADER)
                 response.raise_for_status()
@@ -2431,5 +2438,4 @@ if __name__ == '__main__':
     app = AppController()
     app.protocol("WM_DELETE_WINDOW", app.on_closing) # Handle window close event
     app.mainloop()
-
 
