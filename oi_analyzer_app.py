@@ -49,7 +49,7 @@ CURRENT_VERSION = "3.4.0"
 # The URL to the raw version.json file on your GitHub repository.
 # This file tells the app about the latest version and where to download it.
 # IMPORTANT: You must create this file in a public GitHub repo for this to work.
-VERSION_URL = "https://raw.githubusercontent.com/nobyali/oi-analyzer/main/version.json"
+VERSION_URL = "https://raw.githubusercontent.com/nobys159/oi-analyzer-release/refs/heads/main/version.json"
 # ==============================================================================
 
 
@@ -2431,4 +2431,5 @@ if __name__ == '__main__':
     app = AppController()
     app.protocol("WM_DELETE_WINDOW", app.on_closing) # Handle window close event
     app.mainloop()
+
 
