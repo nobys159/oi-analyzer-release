@@ -1,9 +1,10 @@
 {
-  "version": "3.4.0",
+  "version": "3.5.0",
   "release_notes": "- Switched to a robust executable-based OTA update system.\n- Fixed all packaging and runtime errors.",
-  "url": "https://github.com/nobys159/oi-analyzer-release/releases/download/v3.4.0/OI.Analyzer.exe",
+  "url": "https://github.com/nobys159/oi-analyzer-release/releases/download/v3.5.0/OI.Analyzer.exe",
   "updater_url": "https://raw.githubusercontent.com/nobyali/oi-analyzer/main/updater.py"
 }
+
 
 
 
